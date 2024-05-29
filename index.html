@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>PHP REST API CRUD</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <table id="main" border="0" cellspacing="0">
+    <tr>
+      <td id="header">
+        <h1>PHP REST API CRUD</h1>
+
+        <div id="search-bar">
+          <label>Search :</label>
+          <input type="text" id="search" autocomplete="off">
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td id="table-form">
+        <form id="addForm">
+          Name : <input type="text" name="sname" id="sname">
+          Age : <input type="number" name="sage" id="sage">
+          City : <input type="text" name="scity" id="scity">
+          <input type="submit" id="save-button" value="Save">
+        </form>
+      </td>
+    </tr>
+    <tr>
+      <td id="table-data">
+        <table width="100%" cellpadding="10px" >
+          <tr>
+            <th width="40px">Id</th>
+            <th>Name</th>
+            <th width="50px">Age</th>
+            <th width="150px">City</th>
+            <th width="60px">Edit</th>
+            <th width="70px">Delete</th>
+          </tr>
+          <tbody id="load-table"></tbody>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div id="error-message" class="messages"></div>
+  <div id="success-message" class="messages"></div>
+
+  <!-- Popup Modal Box for Update the Records -->
+  <div id="modal">
+    <div id="modal-form">
+      <h2>Edit Form</h2>
+      <form action="" id="edit-form">
+      <table cellpadding="10px" width="100%">
+        <tr>
+          <td width="90px">Name</td>
+          <td><input type="text" name="sname" id="edit-name">
+              <input type="text" name="sid" id="edit-id" hidden="">
+          </td>
+        </tr>
+        <tr>
+          <td>Age</td>
+          <td><input type="text" name="sage" id="edit-age"></td>
+        </tr>
+        <tr>
+          <td>City</td>
+          <td><input type="text" name="scity" id="edit-city"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td><input type="button" id="edit-submit" value="Update"></td>
+        </tr>
+      </table>
+      </form>
+      <div id="close-btn">X</div>
+    </div>
+  </div>
+
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript">
+   $(document).ready(function(){
+
+
+    // Fetch All Record
+   function load_table(){
+    $("#load-table").html("");
+    $.ajax({
+      url: "http://localhost/api/api-fetch-all.php",
+      type: "GET",
+      dataType: "json",
+      success: function(data){
+         if(data.status == false){
+            $("#load-table").append("<tr><td colspan='6'><h2>"+ data.message +"</h2></td></tr>");
+         }else{
+            $.each(data, function(key,value){
+              $("#load-table").append("<tr>"
+                +"<td>"+value.Id+"</td>"+"<td>"+value.Name+"</td>"+"<td>"+value.Age+"</td>"+"<td>"+value.City+"</td>"+
+                "<td><button class='edit-btn' data-ids='"+ value.Id+"' > Edit</button></td>"+
+                "<td><button class='delete-btn' data-id='"+ value.Id+"' > Delete</button></td>"+
+                "</tr>");
+            })
+         }
+      }
+    })
+   }
+    load_table();
+
+  // Function for Error or Success Message
+
+  function message(message, status){
+   if(status == true){
+    
+    $("#success-message").html(message).slideDown();
+    $("#error-message").slideUp();
+    setTimeout( function(){
+    $("#success-message").slideUp();
+
+    }, 4000);
+   }else if(status == false){
+       
+    $("#error-message").html(message).slideDown();
+    $("#success-message").slideUp();
+    setTimeout( function(){
+    $("#error-message").slideUp();
+  }, 4000);
+
+   }
+  }
+
+
+  // Fucntion for Form Data And Json Object 
+  function jsonData(targetForm){
+    var arr = $(targetForm).serializeArray();
+
+    var obj = {};
+    for(var a =0; a < arr.length; a++){
+      if(arr[a].value == ""){
+        return false;
+      }
+    obj[arr[a].name] = arr[a].value;
+    }
+    var json_string = JSON.stringify(obj);
+
+    return json_string;
+      }
+
+  //  INSERT DATA
+  $("#save-button").on("click", function(e){
+    e.preventDefault();
+    var row      = $(this).closest("tr");
+   
+    var jsonObj = jsonData("#addForm");
+    if( jsonObj == false){
+      message("All fileds Are Required", false);
+    }else{
+      
+      $.ajax({
+        url: "http://localhost/api/api-insert-data.php",
+        type: "POST",
+        data: jsonObj,
+        success: function(data){
+          message(data.message, data.status);
+          if(data.status == true){
+            load_table(500);
+            $("#addForm").trigger("reset");
+
+          }
+        }
+      })
+    }
+  });
+
+// Modal Hide
+   $("#close-btn").click(function(){
+    $("#modal").hide();
+   })
+
+
+// Edit From Modal
+  $(document).on("click", ".edit-btn",  function(){
+    $("#modal").show();
+
+    var studentId = $(this).data("ids");
+    var obj = {sid: studentId};
+    var myJSON = JSON.stringify(obj);
+    $.ajax({
+      url: "http://localhost/api/api-fetch-single.php",
+      type: "POST",
+      data: myJSON,
+      success:  function(data){
+        $("#edit-id").val(data[0].Id);
+        $("#edit-name").val(data[0].Name);
+        $("#edit-age").val(data[0].Age);
+        $("#edit-city").val(data[0].City);
+      }
+    });
+  });
+
+
+
+  //  Update DATA
+  $("#edit-submit").on("click", function(e){
+    e.preventDefault();
+   
+    var jsonObj = jsonData("#edit-form");
+    if( jsonObj == false){
+      message("All fileds Are Required", false);
+    }else{
+      
+      $.ajax({
+        url: "http://localhost/api/api-update-data.php",
+        type: "POST",
+        data: jsonObj,
+        success: function(data){
+          message(data.message, data.status);
+          if(data.status == true){
+            $("#modal").hide();
+            load_table();
+
+          }
+        }
+      })
+    }
+  });
+
+
+
+  //  Delete DATA
+  $(document).on("click", ".delete-btn", function(){
+  if(confirm("are you sure to went delete this data")){
+    var deleteId = $(this).data("id");
+    var obj      = {sid : deleteId};
+    var jsonData = JSON.stringify(obj);
+    var row      = $(this).closest("tr");
+
+    $.ajax({
+      url: "http://localhost/api/api-delete-data.php",
+      type: "POST",
+      data: jsonData,
+      success: function(data){
+        message(data.message, data.status);
+        if(data.status == true){
+          row.fadeOut(500);
+        }
+      }
+
+    });
+  }
+  });
+
+  //  Search DATA
+$("#search").on("keyup", function(){
+  var searchKey = $(this).val();
+  $("#load-table").html("");
+
+
+  $.ajax({
+    url: "http://localhost/api/api-search-data.php?search="+ searchKey,
+    type: "GET",
+    success: function(data){
+      if(data.status == false){
+            $("#load-table").append("<tr><td colspan='6'><h2>"+ data.message +"</h2></td></tr>");
+         }else{
+            $.each(data, function(key,value){
+              $("#load-table").append("<tr>"
+                +"<td>"+value.Id+"</td>"+"<td>"+value.Name+"</td>"+"<td>"+value.Age+"</td>"+"<td>"+value.City+"</td>"+
+                "<td><button class='edit-btn' data-ids='"+ value.Id+"' > Edit</button></td>"+
+                "<td><button class='delete-btn' data-id='"+ value.Id+"' > Delete</button></td>"+
+                "</tr>");
+            })
+         }
+    }
+  });
+});
+
+
+
+   })
+</script>
+</body>
+</html>
